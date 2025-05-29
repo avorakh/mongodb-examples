@@ -1,3 +1,4 @@
 rootProject.name = 'mongodb-examples'
 
 include 'mongodb-sync'
+include 'mongodb-crud'
