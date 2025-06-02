@@ -1,9 +1,8 @@
 package dev.avorakh.tip.mongodb.crud;
 
-import com.mongodb.client.MongoClient;
-import com.mongodb.client.MongoClients;
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoDatabase;
+import static com.mongodb.client.model.Filters.*;
+
+import com.mongodb.client.*;
 import com.mongodb.client.result.InsertOneResult;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -14,6 +13,7 @@ import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.bson.Document;
+import org.bson.conversions.Bson;
 import org.bson.types.ObjectId;
 
 public class MongoCrudOps {
@@ -41,6 +41,20 @@ public class MongoCrudOps {
         result.getInsertedIds()
                 .forEach((key, value) -> insertedIds.add(value.asObjectId().getValue()));
         return insertedIds;
+    }
+
+    public List<Document> findAll(Bson filter) {
+        try (MongoCursor<Document> cursor = collection.find(filter).iterator()) {
+            List<Document> foundDocuments = new ArrayList<>(cursor.available());
+            while (cursor.hasNext()) {
+                foundDocuments.add(cursor.next());
+            }
+            return foundDocuments;
+        }
+    }
+
+    public Optional<Document> find(Bson filter) {
+        return Optional.ofNullable(collection.find(filter).first());
     }
 
     public static void main(String[] args) {
@@ -90,6 +104,15 @@ public class MongoCrudOps {
             var newAccounts = List.of(doc1, doc2);
             var createdAccountIds = bankAccountsCrudOps.create(newAccounts);
             LOGGER.info("✅ Inserted accounts: " + createdAccountIds);
+
+            // Querying a MongoDB Collection
+            Bson filter = and(gte("balance", 1000), eq("account_type", "checking"));
+            var foundAccounts = bankAccountsCrudOps.findAll(filter);
+            LOGGER.info("✅ Found accounts: {}" + foundAccounts);
+
+            var foundFirstAccount = bankAccountsCrudOps.find(filter);
+            LOGGER.info("✅ Found first accounts: {}"
+                    + (foundFirstAccount.isPresent() ? foundFirstAccount.get() : "NOT FOUND"));
 
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "❌ MongoDB operation failed", e);
