@@ -3,7 +3,10 @@ package dev.avorakh.tip.mongodb.crud;
 import static com.mongodb.client.model.Filters.*;
 
 import com.mongodb.client.*;
+import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.Updates;
 import com.mongodb.client.result.InsertOneResult;
+import com.mongodb.client.result.UpdateResult;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -43,8 +46,8 @@ public class MongoCrudOps {
         return insertedIds;
     }
 
-    public List<Document> findAll(Bson filter) {
-        try (MongoCursor<Document> cursor = collection.find(filter).iterator()) {
+    public List<Document> findAll(Bson query) {
+        try (MongoCursor<Document> cursor = collection.find(query).iterator()) {
             List<Document> foundDocuments = new ArrayList<>(cursor.available());
             while (cursor.hasNext()) {
                 foundDocuments.add(cursor.next());
@@ -53,8 +56,19 @@ public class MongoCrudOps {
         }
     }
 
-    public Optional<Document> find(Bson filter) {
-        return Optional.ofNullable(collection.find(filter).first());
+    public Optional<Document> find(Bson query) {
+        return Optional.ofNullable(collection.find(query).first());
+    }
+
+    public boolean update(Bson query, Bson updates) {
+        UpdateResult upResult = collection.updateOne(query, updates);
+        long modifiedCount = upResult.getModifiedCount();
+        return modifiedCount == 1;
+    }
+
+    public long updateAll(Bson query, Bson updates) {
+        UpdateResult upResult = collection.updateMany(query, updates);
+        return upResult.getModifiedCount();
     }
 
     public static void main(String[] args) {
@@ -108,12 +122,22 @@ public class MongoCrudOps {
             // Querying a MongoDB Collection
             Bson filter = and(gte("balance", 1000), eq("account_type", "checking"));
             var foundAccounts = bankAccountsCrudOps.findAll(filter);
-            LOGGER.info("✅ Found accounts: {}" + foundAccounts);
+            LOGGER.info("✅ Found accounts: " + foundAccounts);
 
             var foundFirstAccount = bankAccountsCrudOps.find(filter);
-            LOGGER.info("✅ Found first accounts: {}"
+            LOGGER.info("✅ Found first accounts: "
                     + (foundFirstAccount.isPresent() ? foundFirstAccount.get() : "NOT FOUND"));
 
+            Bson updateQuery = Filters.eq("account_id", "MDB79101843");
+            Bson updatesforOne = Updates.combine(Updates.set("account_status", "active"), Updates.inc("balance", 100));
+
+            boolean isUpdatedForOne = bankAccountsCrudOps.update(updateQuery, updatesforOne);
+            LOGGER.info("✅ Account: " + updateQuery + " was updated - " + isUpdatedForOne);
+
+            Bson queryForMany = Filters.eq("account_type", "savings");
+            Bson updatesForMany = Updates.combine(Updates.set("minimum_balance", 100));
+            long updatesCount = bankAccountsCrudOps.updateAll(queryForMany, updatesForMany);
+            LOGGER.info("✅ Updated accounts: " + updatesCount);
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "❌ MongoDB operation failed", e);
         }
