@@ -5,6 +5,7 @@ import static com.mongodb.client.model.Filters.*;
 import com.mongodb.client.*;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.Updates;
+import com.mongodb.client.result.DeleteResult;
 import com.mongodb.client.result.InsertOneResult;
 import com.mongodb.client.result.UpdateResult;
 import java.time.LocalDate;
@@ -71,6 +72,17 @@ public class MongoCrudOps {
         return upResult.getModifiedCount();
     }
 
+    public boolean delete(Bson query) {
+        DeleteResult delResult = collection.deleteOne(query);
+        long deletedCount = delResult.getDeletedCount();
+        return deletedCount == 1;
+    }
+
+    public long deleteAll(Bson query) {
+        DeleteResult delResult = collection.deleteOne(query);
+        return delResult.getDeletedCount();
+    }
+
     public static void main(String[] args) {
         try (var client = MongoClients.create(
                 Optional.ofNullable(System.getProperty(URI_PROPERTY_KEY)).orElseThrow())) {
@@ -128,6 +140,7 @@ public class MongoCrudOps {
             LOGGER.info("✅ Found first accounts: "
                     + (foundFirstAccount.isPresent() ? foundFirstAccount.get() : "NOT FOUND"));
 
+            // Uodates
             Bson updateQuery = Filters.eq("account_id", "MDB79101843");
             Bson updatesforOne = Updates.combine(Updates.set("account_status", "active"), Updates.inc("balance", 100));
 
@@ -138,6 +151,21 @@ public class MongoCrudOps {
             Bson updatesForMany = Updates.combine(Updates.set("minimum_balance", 100));
             long updatesCount = bankAccountsCrudOps.updateAll(queryForMany, updatesForMany);
             LOGGER.info("✅ Updated accounts: " + updatesCount);
+
+            // Deleting Documents
+            // Using deleteOne()
+            Bson deleteQuery = Filters.eq("account_holder", "john doe");
+            boolean isDeletedForOne = bankAccountsCrudOps.delete(deleteQuery);
+            LOGGER.info("✅ Account: " + deleteQuery + " was deleted - " + isDeletedForOne);
+
+            // Using deleteMany() with a Query Object
+            Bson queryManyForQueryObject = eq("account_status", "dormant");
+            long deletedCount = bankAccountsCrudOps.deleteAll(queryManyForQueryObject);
+            LOGGER.info("✅ Deleted accounts  with a Query Object: " + deletedCount);
+
+            // Using deleteMany() with a Query Filter
+            long deletedCountForFilter = bankAccountsCrudOps.deleteAll(Filters.eq("account_status", "dormant"));
+            LOGGER.info("✅ Deleted accounts with a Query Filter: " + deletedCountForFilter);
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "❌ MongoDB operation failed", e);
         }
