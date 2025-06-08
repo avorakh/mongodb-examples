@@ -2,3 +2,4 @@ rootProject.name = 'mongodb-examples'
 
 include 'mongodb-sync'
 include 'mongodb-crud'
+include 'mongodb-spring-data'
